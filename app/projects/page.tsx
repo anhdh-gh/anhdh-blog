@@ -2,9 +2,10 @@ import projectsData from '@/data/projectsData'
 import Card from '@/components/Card'
 import { genPageMetadata } from 'app/seo'
 
-export const metadata = genPageMetadata({ title: 'Projects' })
+const description = 'Outstanding projects mark my maturity';
+export const metadata = genPageMetadata({ title: 'Projects', description})
 
-export default function Projects() {
+export default function Projects() {  
   return (
     <>
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -13,7 +14,7 @@ export default function Projects() {
             Projects
           </h1>
           <p className="text-lg leading-7 text-gray-500 dark:text-gray-400">
-            Showcase your projects with a hero image (16 x 9)
+            {description}
           </p>
         </div>
         <div className="container py-12">
@@ -25,6 +26,9 @@ export default function Projects() {
                 description={d.description}
                 imgSrc={d.imgSrc}
                 href={d.href}
+                sourceCode={d.sourceCode}
+                techStack={d.techStack}
+                repo={d.repo}
               />
             ))}
           </div>

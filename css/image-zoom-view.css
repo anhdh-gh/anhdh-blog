@@ -1,0 +1,31 @@
+[aria-modal="true"].viewer-container > div.viewer-canvas > img {
+    @apply 
+        rounded-lg
+    ;
+}
+
+[aria-modal="true"].viewer-container > div.viewer-button.viewer-close {
+    @apply 
+        rounded-md
+    ;
+}
+
+[aria-modal="true"].viewer-container > div.viewer-button.viewer-close::before {
+    bottom: 11px;
+    left: 11px;
+}
+
+.dark [aria-modal="true"].viewer-container > div.viewer-button.viewer-close {
+    @apply
+        border
+        border-slate-400
+    ;
+}
+
+
+.dark [aria-modal="true"].viewer-container > div.viewer-button.viewer-close:hover {
+    @apply 
+        border-slate-300
+        bg-sky-950
+    ;
+}

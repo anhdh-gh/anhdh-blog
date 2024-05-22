@@ -3,8 +3,11 @@
 import { useState } from 'react'
 import Link from './Link'
 import headerNavLinks from '@/data/headerNavLinks'
+import { usePathname } from 'next/navigation'
+import MobileLinkWrapper from '@/components/MobileLinkWrapper'
 
 const MobileNav = () => {
+  const pathname = usePathname()
   const [navShow, setNavShow] = useState(false)
 
   const onToggleNav = () => {
@@ -59,13 +62,11 @@ const MobileNav = () => {
         <nav className="fixed mt-8 h-full">
           {headerNavLinks.map((link) => (
             <div key={link.title} className="px-12 py-4">
-              <Link
+              <MobileLinkWrapper
                 href={link.href}
-                className="text-2xl font-bold tracking-widest text-gray-900 dark:text-gray-100"
                 onClick={onToggleNav}
-              >
-                {link.title}
-              </Link>
+                title={link.title}
+              />
             </div>
           ))}
         </nav>

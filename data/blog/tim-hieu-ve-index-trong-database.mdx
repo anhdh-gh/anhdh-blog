@@ -1,0 +1,413 @@
+---
+title: 'Tìm hiểu về index trong relational database'
+date: '2024-02-15'
+tags: ['database', 'index', 'sql', 'advanced', 'backend', 'mysql', 'InnoDB']
+summary: 'Index là một khía cạnh kiến thức quan trọng mà mọi nhà phát triển đều nên am hiểu. Tuy nhiên, với những người mới sử dụng, việc tìm hiểu về index có thể là một thách thức đáng kể. Hãy đồng hành cùng mình để khám phá sâu hơn về khái niệm index thông qua bài viết này nhé.'
+lastmod: '2024-02-15'
+draft: false
+images: ['/static/images/page/blog/tim-hieu-ve-index-trong-database/banner.png']
+layout: PostSimple
+---
+
+<div className="image-blog flex justify-center border-2 rounded-lg dark:border-0 blog-banner">
+    ![banner](/static/images/page/blog/tim-hieu-ve-index-trong-database/banner.png)
+</div>
+
+Hi các bạn 👋. Mình là Hùng Anh.
+
+Trong quá trình làm việc với các hệ quản trị cơ sở dữ liệu quan hệ như MySQL, PostgreSQL, ... 
+việc sử dụng Index để tăng tốc độ truy vấn dữ liệu là điều thiết yếu. 
+Tuy nhiên, đối với những bạn mới sử dụng, việc tìm hiểu về Index có thể gặp không ít khó khăn. 
+Bản thân mình cũng đã trải qua những thời điểm khó khăn như vậy.
+Hôm nay, hãy cùng mình khám phá kiến thức về Index để giúp các bạn có cái nhìn rõ ràng hơn về chủ đề này nhé!
+
+<TOCInline toc={props.toc} exclude={['Giới thiệu','Ví dụ 1', 'Ví dụ 2', 'Ví dụ 3', 'Ví dụ 4', 'Ví dụ 5']} />
+
+## Index là gì?
+<div className="image-blog flex justify-center">
+    ![what-is-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/what-is-index.jpg)
+</div>
+Khi chúng ta đọc một cuốn sách và muốn nhanh chóng tìm đến chương X, chúng ta thường sử dụng mục lục để xác định số  thứ tự trang của chương.
+Việc này giúp chúng ta tránh phải lật từng trang một để đến trang mong muốn. 
+Tuy nhiên, điều đánh đổi ở đây là có thể mất một vài trang ở đầu sách để in phần mục lục.
+
+Index trong các DBMS hoạt động tương tự như trên.
+Index chỉ là một **cấu trúc dữ liệu** được lưu trử trên **ổ đĩa** và công dụng của index giúp cho
+việc truy vấn dữ liệu từ database trở lên nhanh hơn bằng cách giảm số bản ghi phải scan.
+
+Trước khi vào chi tiết, mình thống nhất chút về ngữ cảnh của bài viết nhé:
+- DBMS: MySQL
+- Store engine: InnoDB
+
+
+## Phân loại Index
+
+Index được phân loại theo các yếu tố sau:
+
+1. Theo cấu trúc dữ liệu:
+    - B+ Tree index
+    - Hash index
+    - FullText (inverted) index
+    - LMS tree
+2. Theo lưu trữ vật lý;
+    - Clustered index
+    - Non-clustered index (Secondary index)
+3. Theo số lượng cột
+    - Single column index
+    - Composite index
+4. Theo tính chất
+    - Primary key index
+    - Unique index
+    - Prefix index
+
+_Ở đây mình có một lưu ý rằng, khi mà được hỏi Index được phân ra làm mấy loại, thì lúc này mình sẽ phải hỏi thêm rằng
+ý người hỏi muốn phân loại index theo yếu tố gì. Mặc định nếu không nói gì thêm thì mình có thể hiểu đó là phân loại index theo cấu
+trúc dữ liệu._
+
+Phần bên dưới mình cùng tìm hiểu các một số các loại index hay sử dụng nhé.
+
+### Theo cấu trúc dữ liệu
+#### B+ Tree Index
+
+Mỗi khi chúng ta đánh index trên các cột của một bảng, thì DBMS sẽ build ra một cấu trúc dữ liệu B+ Tree dựa trên dữ liệu
+của các cột đó.
+<div className="image-blog flex justify-center">
+    ![b+tree](/static/images/page/blog/tim-hieu-ve-index-trong-database/b+tree.png)
+</div>
+
+Cấu trúc dữ liệu B+ Tree có các đặc điểm sau:
+- Mỗi node trung gian sẽ chứa nhiều key
+    - Giảm độ cao của cây
+    - Giảm số lần đọc giá trị các node trong ổ đĩa
+- Các node lá sẽ được liên kết với nhau trong một linked list
+    - Hiệu quả hơn khi truy vấn các giá trị theo khoảng (chỉ cần tìm ra node lá đầu tiên 
+        thỏa mãn điều kiện và duyệt next tiếp các node lá cho đến khi gặp node lá cuối cùng thỏa mãn điều kiện thì dừng).
+- Các node lá sẽ có con trỏ để trỏ tới bản ghi thực tế
+
+
+#### Hash Index
+Khi chúng ta sử dụng hash index trên các cột của một bảng,
+thì DBMS sẽ sử dụng một hàm hash để  băm dữ liệu của cột đó và map chúng với các địa chỉ cụ thể của các bản ghi.
+
+<div className="image-blog flex justify-center">
+    ![hash-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/hash-index.png)
+</div>
+
+- Ưu điểm:
+    - Thích hợp sử dụng với các truy vấn so sánh "="
+    - Không tốn nhiều bộ nhớ như B+ Tree để triển khai hash index
+
+- Nhược điểm:
+    - Không phù hợp với các truy vấn theo khoảng và sắp xếp
+    - Có thể xảy ra đụng độ khi hai giá trị khác nhau nhưng giá trị kết quả hash lại giống nhau
+
+
+### Theo lưu trữ vật lý
+#### Clustered index
+Clustered index định nghĩa cách thức mà dữ liệu được lưu trữ vật lý trong một bảng.
+
+Hiểu một cách thông thường rằng, khi một cột được đánh clustered index thì toàn bộ các row sẽ được tổ chức lưu trữ trong một cấu trúc dữ liệu
+(thường là B+ Tree) và nó sẽ có những đặc điểm sau:
+- Những node trung gian sẽ chỉ lưu giá trị của cột được đánh index.
+- Những node lá sẽ lưu **dữ liệu thực tế** của bản ghi
+
+Như vậy, khi một cột được đánh clustered index, thì clustered index sẽ quyết định giá trị của cột đó nằm ở các node trung gian,
+còn node lá sẽ chứa giá trị thực tế của bản ghi.
+
+<div className="image-blog flex justify-center">
+    ![clustered-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/clustered-index.webp)
+</div>
+
+Một table có một clustered index. Mặc định InnoDB engine sẽ tự tạo ra một clustered index theo nguyên tắc sau:
+- Nếu có cột primary key ➔ Đánh clustered index dựa trên cột primary key
+- Nếu không có primary key ➔ Lấy cột unique và not null để đánh clustered index
+- Nếu không có cột nào unique và not null ➔ InnoDB engine sẽ tự tạo 3 hidden columns (DB_ROW_ID, DB_TRX_ID, DB_ROLL_PTR) làm primary key và đánh clustered index.
+
+#### Non-clustered index
+Các index không phải là clustered index thì đều là non-clustered (secondary) index.
+
+<div className="image-blog flex justify-center">
+    ![non-clustered-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/non-clustered-index.webp)
+</div>
+
+Non-clustered (secondary) index sẽ có những đặc điểm sau:
+- Giá trị của node lá là giá trị của cột được đánh clustered index.
+- Mỗi một table thì sẽ có thể có nhiều non-clustered index.
+
+Từ hình ảnh minh họa trên, giả sử chúng ta coi rằng clustered index được đánh trên cột primary key và non-clustered index được đánh trên cột email.
+Khi chúng ta thực hiện câu lệnh bên dưới đây:
+```js
+SELECT * FROM table WHERE email = 'eamil_search';
+```
+Lúc này InnoDB sẽ thực hiện tìm kiếm trên cây B+ Tree của cột email, sau khi tìm được node lá tương ứng thì
+nó tiếp tục cầm giá trị của node lá này (chính là key của cây clustered index) để quét trên cây B+ Tree của 
+clustered index và trả về giá trị đầy đủ của truy vấn.
+
+Hmm, đến đây ae mình sẽ có một thắc mắc là:
+> Tại sao non-clustered index không lưu dữ liệu của bản ghi hoặc địa chỉ ô nhớ của bản ghi bên trong node lá để đỡ phải duyệt cây 2 lần nhỉ?
+
+Mình nghĩ do một vài lý do sau đây mà InnoDB sẽ không làm như thế:
+- Dữ liệu bản ghi có thể thay đổi ➔ Phải cập nhật dữ liệu trên tất cả các node lá của các cây non-clustered index.
+- Địa chỉ ô nhớ của bản ghi cũng có thể thay đổi ➔ Phải cập nhật địa chỉ ô nhớ của bản ghi trên tất cả các node lá của các cây non-clustered index.
+
+Cả hai cách đều rất tốn thời gian để thực hiện. Còn nếu như mô hình hiện tại thì lúc này khi có thay đổi dữ liệu,
+InnoDB chỉ cần cập nhật dữ liệu ở cây clustered index là được.
+
+Nhược điểm của non-clustered index.
+- Các thao tác ghi sẽ bị chậm hơn (do khi thay thêm hoặc thay đổi dữ liệu trên cột đánh index thì nó sẽ phải cập nhật các cây B+ Tree).
+- Càng có nhiều non-clustered index sẽ càng tốn nhiều không gian nhớ (do phải build và lưu trữ nhiều cây B+ Tree).
+- Mất thời gian khi tạo các index và bảo trì các index.
+- Phải duyệt cây 2 lần (tăng thời gian I/O ổ đĩa).
+
+### Theo tính chất
+Trước khi đi vào phần này, mình sẽ làm rõ một chút khái niệm về `key` và `index` nhé.
+> Sự khác nhau giữa key và index?
+
+Mặc dù, khái niêm key và index thường đc đánh đồng với nhau nhưng tư tưởng 2 khái niệm này là khác nhau:
+- Key: Là một **ràng buộc** áp đặt lên hành vi của cột. Ví dụ: khóa chính là trường không thể rỗng, xác định duy nhất mỗi hàng.
+- Index: Là một **cấu trúc dữ liệu đặc biệt** tạo điều kiện cho việc tìm kiếm trở lên nhanh chóng, ko có tư tưởng ràng buộc ở đây.
+
+#### Primary Index
+Primary index là một loại index đóng vai trò là mã định danh duy nhất cho mỗi hàng trong bảng.
+
+<div className="image-blog flex justify-center">
+    ![primary-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/primary-index.webp)
+</div>
+
+Khi chúng ta tạo ra một primary key, thì InnoDB engine cũng sẽ tạo ra một primary index tương ứng. Primary index không cho phép giá trị null.
+
+Primary Key đẹp nhất là để kiểu INT hoặc BIGINT, đơn giản vì so sánh int nhanh hơn,
+duyệt index sẽ nhanh hơn và thao tác ghi từ đó cũng trở nên nhanh hơn.
+Tất nhiên dùng primary key kiểu int cũng có một số nhược điểm ví dụ về mặt security, attacker dễ đoán đc các id key kế tiếp.
+Tùy vào hoàn cảnh, ae chọn kiểu cho primary key phù hợp nhé.
+
+#### Unique Index
+Unique index là một cấu trúc dữ liệu mà nó đảm bảo giá trị của cột (hoặc các cột) trong bảng là duy nhất, tức là không có giá trị trùng lặp, nhưng cho phép có giá trị null.
+
+<div className="image-blog flex justify-center">
+    ![unique-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/unique-index.png)
+</div>
+
+Để tạo một unique index, ta viết theo cú pháp như sau:
+```js
+CREATE UNIQUE INDEX index_name ON table_name(index_column_1,index_column_2,...);
+```
+
+### Theo số lượng cột
+
+#### Composite Index
+Composite Index là index được đánh trên nhiều cột. Một composite index càng có nhiều cột thì càng sử dụng nhiều dung lượng lưu trữ.
+
+Để đễ hiểu hơn, mình lấy một ví dụ: Giả sử mình đánh omposite index trên hai cột là **name** và **country** như hình bên dưới đây.
+
+<div className="image-blog flex justify-center">
+    ![composite-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/composite-index.png)
+</div>
+
+InnoDB engine sẽ build ra các cây B+ Tree bao gồm cây clustered index và cây cho cột **name**, các cây cho cột **country**.
+<div className="image-blog flex justify-center">
+    ![composite-index-explane](/static/images/page/blog/tim-hieu-ve-index-trong-database/composite-index-explane.png)
+</div>
+
+Các node lá của cây name sẽ trỏ tới các node gốc của cây country tương ứng, các node lá của cây country sẽ chứa giá trị key của clustered index.
+Khi duyệt xong cây composite index thì chúng ta sẽ có được giá trị key của clustered index, rồi từ đó mới duyệt tiếp cây clustered index để lấy ra giá trị truy vấn.
+
+Tới đây, mình có một bài thực hành nhỏ. Giả sử mình có một composite index được đánh trên ba cột (country, provine, name). Theo ae thì câu query nào dưới đây sẽ sử dụng index.
+
+```js showLineNumbers
+SELECT * FROM customers WHERE provine = ‘Texas’ AND country = ‘US’; 
+SELECT * FROM customers WHERE provine = ‘Texas’; 
+SELECT * FROM customers WHERE name = ‘JANE’ AND provine = ‘Texas’; 
+SELECT * FROM customers WHERE country = ‘US’;
+```
+
+Câu trả lời là câu query số 1 và số 4 sẽ sử dụng index.
+
+Khi chúng ta tạo composite index trên ba cột (country, provine, name), thì cây country sẽ được tạo đầu tiên.
+Các node lá của cây country sẽ trỏ tới các node gốc của cây provine tương ứng.
+Các node lá của cây provine cũng sẽ trỏ tới các node gốc của cây name tương ứng.
+
+Chúng ta hãy đi lại qua từng câu query nhé.
+
+Câu query số 1:
+```js
+1. SELECT * FROM customers WHERE provine = ‘Texas’ AND country = ‘US’;
+```
+Câu query số 1 sử dụng index bởi vì thứ tự trong câu điền kiện WHERE có thể thay đổi, tức là InnoDB sẽ tự động đảo điều kiện country lên trước điều kiện provine thành điều kiện
+(country = ‘US’ AND provine = ‘Texas’). Do đó InnoDB vẫn sẽ duyệt được cây country trước rồi duyệt tiếp cây provine để lấy kết quả.
+
+Câu query số 2:
+```js
+2. SELECT * FROM customers WHERE provine = ‘Texas’;
+```
+Câu query số 2 không sử dụng index bởi vì điều kiện không có lọc theo country nên InnoDB hoàn toàn không thể duyệt được cây index.
+
+Câu query số 3:
+```js
+3. SELECT * FROM customers WHERE name = ‘JANE’ AND provine = ‘Texas’; 
+```
+Câu query số 3 cũng không sử dụng index giống với câu query số 2, bởi vì điều kiện không có lọc theo country. Nên InnoDB cũng không thể duyệt được cây index.
+
+Câu query số 4:
+```js
+4. SELECT * FROM customers WHERE country = ‘US’;
+```
+Câu query số 4 sử dụng index bởi vì có điều kiện lọc country. Nên InnoDB sẽ duyệt được cây country trước. Các điều kiện lọc theo provine và name không có thì nó lấy tất cả các bản ghi.
+
+
+Từ đây thì chúng ta có thể nhận định rằng:
+> Thử tự các cột trong composite index là quan trọng.
+
+Vậy làm thế nào để mình có thể xác định đúng thứ tự các cột khi sử dụng composite index?
+
+Hướng tiếp cập đó là: **Cột nào có số lượng giá trị riêng biệt cao thì sắp xếp lên trước**.
+
+Quay lại ví dụ trước, liệu thứ tự các cột (country, provine, name) trong composite index đã hợp lý chưa?
+
+Số lượng country trên thế giới có khoảng 200 nước. Mỗi nước có khoảng 300 provine. Đây đều là các con số hữu hạn. Nhưng đối với trường name thì sẽ có rất nhiều tên khác nhau trên thế giới.
+Chính vì vậy, thứ tự các cột chúng ta phải sửa lại thứ tự thành (name, provine, country) thì mới tối ưu được tốc độ truy vấn.
+
+
+#### Covering Index
+Covering Index là composite index được đánh trên tất cả các cột có trong câu select.
+
+Giả sử mình có câu lệnh select:
+```js
+SELECT FirstName, LastName FROM customers WHERE country = ‘US’;
+```
+Lúc này mình đánh composite index trên cả ba cột (FirstName, LastName, country) thì đây được gọi là Covering Index.
+
+<div className="image-blog flex justify-center">
+    ![covering-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/covering-index.png)
+</div>
+
+Do các dữ liệu cần truy vấn đã nằm hết trên các node của các cây rồi, nên khi duyệt xong cây covering index,
+DBMS không cần phải tham chiếu sang cây clustered index nữa, từ đó giảm thiểu được thời gian duyệt cây và cải thiện hiệu suất của truy vấn.
+
+Đối với các câu truy vấn ít cột và thường xuyên được gọi thì mình nên tận dụng covering index.
+Tuy nhiên số lượng cột chúng ta cũng chỉ nên giới hạn $\le$ 5.
+Đây là một khuyến cáo thôi, cũng tùy vào tình hình thực tế mà ae cân nhắc con số sao cho hợp lý.
+
+## Các loại index khác
+- Phân loại theo cấu trúc dữ liệu
+    - Fulltext Index: Sử dụng cấu trúc dữ liệu Inverted, phù hợp với tìm kiếm văn bản.
+    - Spatial Index: Là index phù hợp tìm kiếm trong không gian, vị trí kinh độ, vĩ độ, bán kính.
+    - Bitmap Index: Phù hợp với bài toán tìm giao, tìm hợp của dữ liệu.
+
+## Cách sử dụng index
+Không phải lúc nào chúng ta cũng nên sử dụng index. Index cũng có hai mặt, nếu chúng ta sử dụng không cẩn thận thì sẽ dần đến
+truy vấn chậm hơn. Dưới đây mình có tổng hợp một số trường hợp nên và không nên sử dụng index.
+
+- Nên sử dụng index khi:
+    - Có nhiều truy vấn thường gặp sử dụng WHERE, JOIN, GROUP BY, ORDER BY.
+    - Tìm một tập nhỏ record
+    - Tìm dữ liệu theo các cột có có tính chất định danh hoặc unique như product_id.
+
+- Không nên sử dụng index khi:
+    - Cột có số lượng giá trị riêng biệt thấp. Ví dụ như gender (chỉ có 2 giá trị Male và Femail).
+    - Số lượng bản ghi trong bảng rất ít.
+
+## Thực hành
+### Ví dụ 1
+Mình đánh index trên cột **name**, theo ae câu truy vấn MySQL nào dưới đây sử dụng index.
+```js showLineNumbers
+SELECT * FROM users WHERE name LIKE ‘%peter’;
+SELECT * FROM users WHERE name LIKE ‘peter%’;
+SELECT * FROM users WHERE name LIKE ‘%peter%’;
+```
+Trả lời: Câu truy vấn số 2 sẽ sử dụng index.
+
+Giải thích: Đối với cột được đánh index mà có kiểu dữ liệu là varchar thì DBMS sẽ xây dựng cây index dưới dạng prefix.
+Do đó khi mà mình truy vấn ‘%peter’ hoặc ‘%peter%’ thì DBMS sẽ không biết phải duyệt từ đâu.
+
+<div className="image-blog flex justify-center">
+    ![prefix-index](/static/images/page/blog/tim-hieu-ve-index-trong-database/prefix-index.webp)
+</div>
+
+_Chú ý: Đối với PostgreSQL thì truy vấn với LIKE sẽ không sử dụng index, do đó trong PostgreSQL cả 3 câu truy vấn trên đều không sử dụng index._
+
+### Ví dụ 2
+Mình đánh index trên cột **id**, theo ae câu truy vấn dưới đây có sử dụng index không?
+```js
+SELECT * FROM users WHERE id = 1 OR age = 18;
+```
+Trả lời: Câu truy vấn trên không sử dụng index.
+
+
+Giải thích: Do cột age không được đánh index, nên DBMS sẽ phải duyệt các hàng trong bảng để kiểm tra cột age có phải bằng 18 không.
+
+
+### Ví dụ 3
+Mình đánh index trên cột **id**, nhưng câu đầu tiên cột id là kiểu int, câu số 2 cột id là kiểu varchar,
+theo ae cả 2 câu truy vấn dưới đây có sử dụng index không?
+```js showLineNumbers
+SELECT * FROM users WHERE id = ‘10’; // Column ‘id’: int
+SELECT * FROM users WHERE id = 10; // Column ‘id’: varchar
+```
+Trả lời: Câu truy vấn số 1 sử dụng index.
+
+Giải thích: Hai câu truy vấn trên có điều kiện so sánh mà cả hai vế đều khác kiểu dữ liệu. MySQL phải chuyển đổi về cùng kiểu rồi mới so sánh được.
+MySQL ưu tiên việc chuyển đổi kiểu ký tự về kiểu số để so sánh, vì mặc định so sánh hai kiểu số thì sẽ nhanh hơn.
+Logic chuyển đổi kiểu như sau:
+- Nếu cột là kiểu số, giá trị so sánh là kiểu ký tự
+    ➔ MySQL convert giá trị ký tự về kiểu số rồi so sánh
+    ➔ Convert từ '10' về 10 rồi so sánh id = 10.
+    ➔ Câu truy vấn số 1 sử dụng index.
+- Nếu cột là kiểu ký tự, giá trị so sánh là kiểu số 
+    ➔ MySQL convert từng giá trị ký tự về kiểu số rồi so sánh
+    ➔ Convert từng hàng có id là kiểu ký tự về kiểu số rồi so sánh id = 10
+    ➔ Câu truy vấn số 2 không sử dụng index (do phải duyệt tất cả các hàng để convert).
+
+### Ví dụ 4
+Mình đánh index trên cột **name**, theo ae câu truy vấn dưới đây có sử dụng index không?
+```js
+SELECT * FROM users WHERE length(name) = 20; 
+```
+Trả lời: Câu truy vấn trên không sử dụng index.
+
+Giải thích: Bởi vì mình đánh index trên cột name chứ không phải trên giá trị return từ hàm length(name), nên câu truy vấn trên không sử dụng index.
+Tuy nhiên một số DBMS như Orancle, PostgreeSQL, MySQL 8.0+ đã hỗ trợ function index, nhưng khi sử dụng chúng ta vẫn cần phải cẩn thận.
+
+### Ví dụ 5
+Mình đánh index trên cột **id**, theo ae câu truy vấn nào dưới đây có sử dụng index?
+```js showLineNumbers
+SELECT * FROM users WHERE id + 1 = 10;
+SELECT * FROM users WHERE id + 0 = 10 - 1;
+```
+Trả lời: Cả hai câu truy vấn trên đều không sử dụng index.
+
+Giải thích: Do mình đánh index trên cột id, chứ không phải trên giá trị được tính toán bởi biểu thức, nên cả hai câu truy vấn trên sẽ không sử dụng index.
+
+## Best practices
+Ở đây mình có đưa ra một số các best practices chúng ta nên áp dụng khi sử dụng index.
+- Giới hạn số lượng cột được đánh index.
+- Primary key tốt nhất là mình nên để auto-increment.
+- Index hoạt động tốt nhất trên cột NOT NULL.
+- Nếu có thể thì hãy sử dụng Covering Index.
+    - Làm giảm thao tác duyệt cây và giảm thiểu I/O ổ đĩa.
+- Nếu dữ liệu cột quá dài, chúng ta có thể cân nhắn sử dụng Prefix Index.
+    - Làm giảm kích thước của cây index.
+- Thường xuyên theo dõi và tối ưu hóa các index.
+- Tránh cách trường index không được sử dụng.
+
+## Tổng kết
+Chà! Cuối cùng thì chúng mình cũng đã tới hồi kết của bài viết rồi.
+Dưới đây mình có tổng hợp một số ý chính của bài viết.
+- Trong cây B+ Tree, các node lá sẽ được liên kết với nhau như một linked list ➔ hiệu quả hơn khi truy vấn theo khoảng.
+- Khi duyệt các non-clustered index, có ít nhất là hai thao tác duyệt cây (hai lần I/O ổ đĩa).
+Một lần duyệt cây non-clustered index để lấy ra key, một lần duyệt cây clustered index để lấy ra giá trị thực của bản ghi.
+- Tận dụng composite index và covering index. Chúng ta nên đặt cột có số lượng giá trị khác nhau nhiều lên trước.
+
+Cảm ơn các bạn đã đọc bài viết của mình. 
+Bài viết còn thiếu sót nhiều chỗ do lượng kiến thức của mình còn hạn hẹp.
+Hi vọng qua bài viết sẽ giúp các bạn có cái nhìn tổng quan về index trong database.
+
+Hẹn gặp các bạn trong các bài viết sắp tới nhé.
+
+Happy reading! 🍻
+
+## Tham khảo
+1. [𝐒𝐐𝐋 𝐈𝐧𝐝𝐞𝐱 - 𝐏𝐚𝐫𝐭 𝟎 (System Design VN)](https://www.facebook.com/groups/systemdesign.vn/permalink/729362075062464)
+1. [An in-depth look at Database Indexing](https://www.freecodecamp.org/news/database-indexing-at-a-glance-bb50809d48bd)
+1. [MySQL: Building the best INDEX for a given SELECT](https://mysql.rjweb.org/doc.php/index_cookbook_mysql)
+1. [What every developer should know about SQL performance](https://use-the-index-luke.com/sql/table-of-contents)

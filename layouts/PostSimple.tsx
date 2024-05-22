@@ -8,6 +8,8 @@ import PageTitle from '@/components/PageTitle'
 import SectionContainer from '@/components/SectionContainer'
 import siteMetadata from '@/data/siteMetadata'
 import ScrollTopAndComment from '@/components/ScrollTopAndComment'
+import ViewCount from '@/components/ViewCount'
+import ImageZoomView from '@/components/ImageZoomView'
 
 interface LayoutProps {
   content: CoreContent<Blog>
@@ -17,7 +19,7 @@ interface LayoutProps {
 }
 
 export default function PostLayout({ content, next, prev, children }: LayoutProps) {
-  const { path, slug, date, title } = content
+  const { path, slug, date, title, timeReadMinutes, readingTime } = content
 
   return (
     <SectionContainer>
@@ -30,7 +32,11 @@ export default function PostLayout({ content, next, prev, children }: LayoutProp
                 <div>
                   <dt className="sr-only">Published on</dt>
                   <dd className="text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
-                    <time dateTime={date}>{formatDate(date, siteMetadata.locale)}</time>
+                    <time dateTime={date}>{formatDate(date, 'en-US')}</time>
+                  </dd>
+
+                  <dd className="mt-1.5 mb-2.5 text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
+                    <ViewCount slug={slug} timeReadMinutes={timeReadMinutes || Math.ceil(readingTime.minutes)} className='justify-center'/>
                   </dd>
                 </div>
               </dl>
@@ -41,7 +47,10 @@ export default function PostLayout({ content, next, prev, children }: LayoutProp
           </header>
           <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 dark:divide-gray-700 xl:divide-y-0">
             <div className="divide-y divide-gray-200 dark:divide-gray-700 xl:col-span-3 xl:row-span-2 xl:pb-0">
-              <div className="prose max-w-none pb-8 pt-10 dark:prose-invert">{children}</div>
+              <div className="prose lg:prose-lg xxl:prose-xl !leading-9 !tracking-wide max-w-none pb-8 pt-10 dark:prose-invert" id='main-blog'>
+                {children}
+                <ImageZoomView />
+              </div>
             </div>
             {siteMetadata.comments && (
               <div className="pb-6 pt-6 text-center text-gray-700 dark:text-gray-300" id="comment">

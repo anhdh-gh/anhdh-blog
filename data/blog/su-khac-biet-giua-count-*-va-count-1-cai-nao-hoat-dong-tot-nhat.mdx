@@ -1,0 +1,225 @@
+---
+title: 'Sự khác biệt giữa count(*) và count(1) và cái nào hiệu quả hơn?'
+date: '2024-04-02'
+tags: ['database', 'sql', 'medium', 'backend', 'mysql', 'InnoDB']
+summary: 'Khi chúng ta đếm các bản ghi trong bảng dữ liệu, chúng ta đã quen với việc sử dụng hàm count để đếm, nhưng có nhiều loại tham số có thể  được truyền trong hàm count, chẳng hạn như count(1), count(*), count(field), ... Vậy hàm count nào sẽ đem lại hiệu suất tốt nhất?'
+lastmod: '2024-04-02'
+draft: false
+images: ['/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/banner.png']
+layout: PostSimple
+---
+
+<div className="image-blog flex justify-center border-2 rounded-lg dark:border-0 blog-banner">
+    ![banner](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/banner.png)
+</div>
+
+Hi các bạn 👋. Mình là Hùng Anh.
+
+Khi chúng ta đếm các bản ghi trong bảng dữ liệu, chúng ta đã quen với việc sử dụng hàm count để đếm, 
+nhưng có nhiều loại tham số có thể  được truyền trong hàm count, chẳng hạn như count(1), count(*), count(field), …
+
+Vậy sử dụng cái nào hiệu quả nhất? Có phải count(*) sẽ kém hiệu quả nhất không?
+
+Mọi người thường nhận định count(*) là kém hiệu quả nhất và cho rằng nó sẽ đọc tất cả các trường trong bảng, 
+giống như câu query `select * from`. Điều này có thực sự đúng không, chúng ta hãy tìm hiểu bên dưới nhé.
+
+<TOCInline toc={props.toc} />
+
+## 1. Câu lệnh count nào sẽ có hiệu suất tốt nhất?
+Chúng ta sẽ bắt đầu với kết luận trước:
+```js
+count(*) = count(1) > count(primary key field) > count(field)
+```
+Để hiểu điều này, chúng ta cần đi sâu vào nguyên tắc hoạt cộng của hàm count().
+Trước khi đi tiếp, chúng ta cùng thống nhất ngữ cảnh của bài viết:
+- Database: MySQL
+- Store engine: InnoDB
+
+### 1.1. Count() là gì?
+Count(arg) là một hàm tổng hợp được dùng để đếm số lượng bản ghi trong một tập hợp kết quả từ một câu truy vấn mà tham số  **arg khác NULL**.
+
+Trong đó tham số arg có thể nhận các giá trị sau:
+- Một hằng số: count(0), count(1), ...
+- Một biểu thức: count(1 < 2), ...
+- Một trường: count(name), count(age), ...
+- "*": count(\*)
+
+Giả sử tham số arg là một trường name như sau:
+```js
+select count(name) from member;
+```
+Câu lệnh này là để đếm số lượng bản ghi trong bảng member với trường name khác NULL.
+Nói cách khác, nếu giá trị của trường name trong bản ghi là NULL, nó sẽ không được tính. 
+
+Giả sử tham số arg là một hằng số 1 như sau:
+```js
+select count(1) from member;
+```
+Câu lệnh này là để đếm có bao nhiêu bản ghi trong bảng member trong đó 1 khác NULL.
+Tất nhiên 1 thì luôn khác NULL rồi, vì vậy câu lệnh trên thực sự đang đếm có bao nhiêu bản ghi trong bảng member.
+
+Để hiểu rõ hơn, sau đây chúng ta cùng tìm hiểu các cơ chế hoạt động và chiến lược thực thi của hàm count nhé. 
+
+### 1.2. Count(primary key field) thực thi như thế nào?
+Khi chúng ta đếm có bao nhiêu bản ghi thông qua hàm count(arg),
+lúc này MySQL duy trì một biến gọi là count và duyệt qua các record của tập kết quả truy vấn.
+Nếu giá trị arg khác NULL, nó cộng thêm 1 vào biến count.
+Khi tất cả các record đã được duyệt qua, nó sẽ trả kết quả biến count về cho client.
+
+Như chúng ta biết rằng sẽ có hai loại [index](https://www.anhdh.net/blog/tim-hieu-ve-index-trong-database) 
+là clustered index và secondary index.
+Sự khác biệt giữa chúng là các nút lá của clustered index lưu trữ dữ liệu thực tế, 
+trong khi các nút lá của secondary index chỉ lưu trữ giá trị khóa chính thay vì dữ liệu của bản ghi.
+
+Lấy câu lệnh truy vấn sau đây làm ví dụ:
+```js
+select count(CardNo) from member;
+```
+Nếu bảng chỉ có clustered index, InnoDB sẽ duyệt qua clustered index và trả về các bản ghi đã đọc.
+Sau đó InnoDB tiếp tục đọc giá trị của trường CardNo trong các bản ghi để 
+xác định xem giá trị CardNo có phải là NULL hay không và nếu nó khác NULL, 
+biến count sẽ được tăng lên 1.
+<div className="image-blog flex justify-center">
+    ![count-(primary-key-field)-with-clustered-index](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/count-primary-key-with-clustered-index.png)
+</div>
+
+Tuy nhiên, nếu có một secondary index trong bảng, InnoDB sẽ ưu tiên sử dụng secondary index để duyệt thay vì sử dụng clustered index.
+<div className="image-blog flex justify-center">
+    ![count-(primary-key-field)-with-secondary-index](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/count-primary-key-with-secondary-index.png)
+</div>
+
+Lý do là secondary index có thể chiếm ít dung lượng lưu trữ hơn so 
+với clustered index ➔ cây secondary index nhỏ hơn cây clustered index ➔ chi phí 
+I/O khi scan secondary index thấp hơn so với việc scan clustered index. 
+Vì vậy secondary index được ưu tiên sử dụng hơn.
+
+### 1.3. Count(1) thực thi như thế nào?
+Tham số của hàm count là 1, rõ ràng không phải là cột, cũng không phải NULL. Vậy count(1) sẽ thực thi thế nào?
+
+Chúng ta lấy câu truy vấn sau làm ví dụ:
+```js
+select count(1) from member;
+```
+Trong trường hợp chỉ có clustered index và không có secondary index, 
+InnoDB duyệt clustered index để lấy ra tập kết quả truy vấn. 
+Vì hằng số 1 luôn khác NULL, nên InnoDB sẽ duyệt và trả về kết quả là số lượng bản ghi luôn
+mà **không cần phải kiểm tra bất kỳ giá trị của trường nào trong tập kết quả truy vấn**.
+<div className="image-blog flex justify-center">
+    ![count-(1)-with-clustered-index](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/count-1-with-clustered-index.png)
+</div>
+
+Trong trường hợp có thêm secondary index, thì InnoDB vẫn sẽ ưu tiên sử dụng secondary index để duyệt thay vì sử dụng clustered index.
+<div className="image-blog flex justify-center">
+    ![count-(1)-with-secondary-index](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/count-1-with-secondary-index.png)
+</div>
+
+Như chúng ta có thể thấy, count(1) sẽ nhanh hơn count(primary key field), 
+vì nó không cần đọc bản ghi để kiểm tra giá trị NULL của tham số, do đó 
+người ta thường nói rằng count(1) sẽ được thực thi hiệu quả hơn một chút so với count(primary key field).
+
+### 1.4. Count(*) thực thi như thế nào?
+Khi bạn nhìn thấy ký tự `*`, bạn có nghĩ rằng nó đang đọc tất cả các giá trị trường trong bản ghi không?
+
+Nó sẽ đúng trong trường hợp `select *`, còn `count(*)` thì không nhé. 
+**Khi chúng ta gọi count(*), MySQL sẽ chuyển đổi tham số thành count(0)**.
+<div className="image-blog flex justify-center">
+    ![count-(*)](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/count-*.png)
+</div>
+Do đó, quá trình thực thi count(*) giống hệt count(1) và không có sự khác biệt về hiệu suất.
+
+### 1.5. Count(field) thực thi như thế nào?
+Hiệu quả thực thi của count(field) kém nhất so với count(1), count(*) và count(primary key field). 
+
+Chúng ta có ví dụ sau:
+```js
+select count(name) from member;
+```
+Đối với truy vấn này, MySQL quét toàn bộ bảng để đếm, vì vậy hiệu quả thực thi của nó tương đối kém.
+<div className="image-blog flex justify-center">
+    ![count-(field)](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/count-field.png)
+</div>
+Trong trường hợp field là secondary index thì câu lệnh sẽ sử dụng index để duyệt, từ đó tốc độ sẽ được cải thiện. 
+
+### 1.6. Tóm tắt
+- count(*) = count(1) > count(primary key field) > count(field)
+- Nếu có secondary index trong bảng, InnoDB sẽ chọn secondary index có key_len nhỏ nhất để duyệt. Vì nó hiệu quả hơn so với duyệt primary index.
+- Hạn chế sử dụng count(field) vì nó kém hiệu quả nhất. 
+    Trong trường hợp cần dùng, hãy tạo secondary index trên cột field để tăng hiệu suất truy vấn.
+
+## 2. Tại sao count lại phải duyệt qua các bản ghi?
+
+Bạn có thể tự hỏi tại sao hàm count() cần phải duyệt qua các bản ghi.
+
+Từ đầu bài, mình chỉ đề cập tới storage engine InnoDB, 
+tuy nhiên, các storage engine khác nhau có thể có cách thực thi hàm count khác nhau. 
+Ví dụ như MyISAM, một storage engine khác của MySQL và phổ biến thứ 2 sau InnoDB.
+
+Trong trường hợp sử dụng MyISAM, mỗi bảng sẽ có metadata chứa giá trị row_count. 
+Như vậy khi cần **đếm tất cả bản ghi trong bảng (count() không có điều kiện lọc), 
+MyISAM chỉ cần đọc giá trị row_count với độ phức tạp O(1)**.
+
+Khi đếm có thêm điều kiện lọc where, MyISAM không khác gì InnoDB, cả hai đều cần scan bảng để đếm số lượng bản ghi.
+
+_Lưu ý, khi đọc lấy row_count, MyISAM lock bảng để đảm bảo tính nhất quán của giá trị này._
+
+Storage engine InnoDB hỗ trợ transaction và nhiều transaction có thể thực cùng lúc. 
+Cơ chế  MVCC (multi-version concurrency control) và Isolation có thể ảnh hưởng tới kết quả count(),
+vì thế mà kết quả count trong InnoDB cũng không chắc chắn nên không thể duy trì chỉ một biến row_count như MyISAM.
+
+Ví dụ: Bảng member có 100 bản ghi và có 2 sesssion thực hiện song song và các query được thực hiện theo thứ tự sau:
+| Session A   | Session B   |
+| ----------- | ----------- |
+| Begin       | Begin       |
+| select count(*) from Member <br/> (return 100)            |         |
+| | insert into member ... |
+| select count(*) from Member <br/> (return **100**) | select count(*) from Member <br/> (return **101**) |
+
+Ở cuối session A và B, ta kiểm tra tổng số bản ghi trong bảng member cùng một lúc nhưng bạn có thể thấy rằng kết quả hiển thị là khác nhau.
+Do isolation level mặc định của transaction A là repeatable nên count(*) của session A sẽ lặp kết quả là 100.
+Vì vậy mà InnoDB phải scan bảng khi đếm và không thể duy trì một biến row_count như MyISAM.
+
+## 3. Làm cách nào để  tối ưu count(*)?
+Nếu bạn thường xuyên sử dụng count(*) cho một table lớn thì đó không phải giải pháp tốt.
+Bảng member có tổng cộng 12 triệu + bản ghi, và mình cũng đã tạo một secondary index, 
+nhưng phải mất khoảng 5 giây để thực thi một lần: `select count(*) from member`
+
+<div className="image-blog flex justify-center">
+    ![count-(*)-with-big-table](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/count-with-big-table.png)
+</div>
+
+Vậy có cách nào tốt hơn để làm điều này khi đối mặt với một bảng lớn không?
+
+### 3.1. Lấy giá trị sấp xỉ
+Nếu bạn không cần phải rất chính xác về số lượng thống kê, 
+ví dụ: khi công cụ tìm kiếm tìm kiếm từ khóa, số lượng kết quả tìm kiếm được đưa ra là một giá trị gần đúng.
+<div className="image-blog flex justify-center">
+    ![approximate-count](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/approximate-count.png)
+</div>
+
+Trong trường hợp này, chúng ta có thể sử dụng lệnh explain để ước tính bảng. 
+**Lệnh explain (không đi kèm tham số  analyze) rất hiệu quả vì nó không thực sự truy vấn**.
+<div className="image-blog flex justify-center">
+    ![count-with-explain](/static/images/page/blog/su-khac-biet-giua-count-*-va-count-1-cai-nao-hoat-dong-tot-nhat/count-with-explain.png)
+</div>
+
+### 3.2. Tạo một bảng để  lưu giá trị biến count
+Nếu ta muốn lấy tổng số bản ghi chính xác trong một bảng, ta có thể lưu giá trị đếm này vào một bảng đếm riêng biệt.
+Khi thêm một bản ghi vào bảng dữ liệu, ta tăng trường count lên 1 và khi xóa một bản ghi thì giảm số lượng trường count xuống 1.
+
+## 4. Tổng kết
+Cuối cùng, chúng ta cần nhớ vài điểm quan trọng sau đây:
+- Count(*) có hiệu năng tốt hơn so với Count(pk), count(field)
+- Hàm count ưu tiên sử dụng secondary index để thực hiện đếm.
+- Nếu trường hợp không cần số liệu chính xác, hãy lấy giá trị xấp xỉ.
+
+Cảm ơn các bạn đã đọc bài viết của mình. 
+Bài viết còn thiếu sót nhiều chỗ do lượng kiến thức của mình còn hạn hẹp.
+Hi vọng qua bài viết sẽ giúp các bạn có thêm kiến thức sử dụng các hàm count khi làm việc với database.
+
+Hẹn gặp các bạn trong các bài viết sắp tới nhé.
+
+Happy reading! 🍻
+
+## Tham khảo
+1. [Sự khác biệt giữa Count(*) và Count(1)? Cái nào hiệu quả hơn? (System Design VN)](https://viblo.asia/p/su-khac-biet-giua-count-va-count1-cai-nao-hieu-qua-hon-vlZL9a2BLQK)
+1. [What is the difference between count(*) and count(1) and which performs best?](https://xiaolincoding.com/mysql/index/count.html#%E5%93%AA%E7%A7%8D-count-%E6%80%A7%E8%83%BD%E6%9C%80%E5%A5%BD)

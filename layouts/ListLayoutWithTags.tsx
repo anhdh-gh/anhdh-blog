@@ -10,6 +10,8 @@ import Link from '@/components/Link'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
 import tagData from 'app/tag-data.json'
+import Image from '@/components/Image'
+import ViewCount from '@/components/ViewCount'
 
 interface PaginationProps {
   totalPages: number
@@ -122,15 +124,22 @@ export default function ListLayoutWithTags({
           <div>
             <ul>
               {displayPosts.map((post) => {
-                const { path, date, title, summary, tags } = post
+                const { path, date, title, summary, tags, images, timeReadMinutes, readingTime, slug: slugPost } = post
                 return (
                   <li key={path} className="py-5">
                     <article className="flex flex-col space-y-2 xl:space-y-0">
                       <dl>
                         <dt className="sr-only">Published on</dt>
                         <dd className="text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
-                          <time dateTime={date}>{formatDate(date, siteMetadata.locale)}</time>
+                          <time dateTime={date}>{formatDate(date, 'en-US')}</time>
                         </dd>
+                        {images?.[0] && <div className='sm:hidden sm:mt-0 my-3 rounded-md'><Link href={`/${path}`}><Image
+                          alt={title}
+                          src={images?.[0]}
+                          className="object-cover object-center rounded-md border rounded-lg dark:border-0"
+                          width={1000}
+                          height={150}
+                        /></Link></div>}
                       </dl>
                       <div className="space-y-3">
                         <div>
@@ -139,6 +148,9 @@ export default function ListLayoutWithTags({
                               {title}
                             </Link>
                           </h2>
+                          <dd className="mt-1.5 mb-2.5 text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
+                            <ViewCount slug={slugPost} timeReadMinutes={timeReadMinutes || Math.ceil(readingTime.minutes)} />
+                          </dd>
                           <div className="flex flex-wrap">
                             {tags?.map((tag) => <Tag key={tag} text={tag} />)}
                           </div>

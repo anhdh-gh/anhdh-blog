@@ -22,16 +22,28 @@ module.exports = {
         14: '3.5rem',
       },
       fontFamily: {
-        sans: ['var(--font-space-grotesk)', ...fontFamily.sans],
+        sans: ['Outfit', ...fontFamily.sans],
       },
       colors: {
-        primary: colors.pink,
+        primary: colors.blue,
         gray: colors.gray,
+        sky: colors.sky,
+        dark: '#1A1B26',
+        spotify: '#1DB954',
+        coral: '#EF596F',
+      },
+      boxShadow: {
+        nextjs: '0 8px 20px rgb(0,0,0,0.12)',
+        'nextjs-dark': '0 8px 20px rgb(255,255,255,0.12)',
+      },
+      spacing: {
+        '9/16': '56.25%',
       },
       typography: ({ theme }) => ({
         DEFAULT: {
           css: {
             a: {
+              textDecoration: 'none',
               color: theme('colors.primary.500'),
               '&:hover': {
                 color: `${theme('colors.primary.600')}`,
@@ -46,7 +58,19 @@ module.exports = {
               fontWeight: '600',
             },
             code: {
-              color: theme('colors.indigo.500'),
+              color: '#10b981',
+              backgroundColor: '#f3f4f6',
+              paddingLeft: '4px',
+              paddingRight: '4px',
+              paddingTop: '2px',
+              paddingBottom: '2px',
+              borderRadius: '0.25rem',
+            },
+            'code::before': {
+              content: 'none',
+            },
+            'code::after': {
+              content: 'none',
             },
           },
         },
@@ -62,6 +86,12 @@ module.exports = {
             'h1,h2,h3,h4,h5,h6': {
               color: theme('colors.gray.100'),
             },
+            pre: {
+              backgroundColor: '#24283b',
+            },
+            code: {
+              backgroundColor: '#1f2937'
+            }
           },
         },
       }),
